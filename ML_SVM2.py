@@ -1,0 +1,923 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyNM9DS2XDThC7o4XoOln9+f",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/Dheeraj024/MachineSVM/blob/main/ML_SVM2.py\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 46,
+      "metadata": {
+        "id": "6-3BJeURk2Uk"
+      },
+      "outputs": [],
+      "source": [
+        "import numpy as np\n",
+        "import pandas as pd\n",
+        "import scipy.io as sio\n",
+        "import matplotlib.pyplot as plt\n",
+        "from sklearn.decomposition import PCA\n",
+        "from sklearn.model_selection import train_test_split\n",
+        "from sklearn.svm import SVC\n",
+        "from sklearn import svm\n",
+        "import os,time\n",
+        "from sklearn.multiclass import  OneVsRestClassifier\n",
+        "from sklearn.metrics import accuracy_score\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "hyp_data = sio.loadmat(\"/content/sample_data/Indian_pines_corrected.mat\")\n",
+        "gt_data = sio.loadmat(\"/content/sample_data/Indian_pines_gt.mat\")"
+      ],
+      "metadata": {
+        "id": "YOtyy3Bklcux"
+      },
+      "execution_count": 47,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "data = hyp_data[sorted(hyp_data.keys())[-1]]\n",
+        "\n",
+        "def applyPCA(X, n_components=30, seed=1):\n",
+        "    newX = np.reshape(X, (-1, X.shape[2]))\n",
+        "    pca = PCA(n_components=n_components, whiten=True, random_state=seed)\n",
+        "    newX = pca.fit_transform(newX)\n",
+        "    newX = np.reshape(newX, (X.shape[0], X.shape[1], n_components))\n",
+        "    return newX"
+      ],
+      "metadata": {
+        "id": "qmk9vu5GmJcI"
+      },
+      "execution_count": 48,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "data.shape\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "TOgAMoA8mODr",
+        "outputId": "e2389b5a-0f84-4f9f-c151-57ccfbf7eb2d"
+      },
+      "execution_count": 49,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "(145, 145, 200)"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 49
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "data = applyPCA(data)\n",
+        "data.shape\n",
+        "\n",
+        "labels = gt_data[sorted(gt_data.keys())[-1]]\n",
+        "\n",
+        "print(data.shape)\n",
+        "print(labels.shape)\n",
+        "\n",
+        "data = data.reshape(data.shape[0]*data.shape[1],data.shape[2])\n",
+        "data.shape\n",
+        "\n",
+        "labels = labels.reshape(-1,1)\n",
+        "labels.shape"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "pZzwf74GmS-j",
+        "outputId": "6da5ce54-8d61-49dd-a829-9a1f8388ce17"
+      },
+      "execution_count": 50,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "(145, 145, 30)\n",
+            "(145, 145)\n"
+          ]
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "(21025, 1)"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 50
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "unique, counts = np.unique(labels, return_counts=True)"
+      ],
+      "metadata": {
+        "id": "QwO7sdikoAOd"
+      },
+      "execution_count": 51,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "print(unique,counts)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "OhCDI348oobM",
+        "outputId": "ffc77c14-eade-4ecf-f519-45c6fd08bb6d"
+      },
+      "execution_count": 52,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "[ 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16] [10776    46  1428   830   237   483   730    28   478    20   972  2455\n",
+            "   593   205  1265   386    93]\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "count_sort_ind = np.argsort(-counts)\n",
+        "print(unique[count_sort_ind])\n",
+        "counts[count_sort_ind]"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "o0qNjkXGvG2g",
+        "outputId": "f8c312ed-8b19-49d3-b2c2-72924bc01fce"
+      },
+      "execution_count": 53,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "[ 0 11  2 14 10  3  6 12  5  8 15  4 13 16  1  7  9]\n"
+          ]
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "array([10776,  2455,  1428,  1265,   972,   830,   730,   593,   483,\n",
+              "         478,   386,   237,   205,    93,    46,    28,    20])"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 53
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "data.shape"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "Tt_e9zYKmfSw",
+        "outputId": "1e01a5c8-f465-49ef-8223-a42da0477401"
+      },
+      "execution_count": 54,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "(21025, 30)"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 54
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "combine = np.concatenate((data,labels),axis=1)\n",
+        "combine"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "Yb7gtT_nmhD5",
+        "outputId": "ac95b564-a09b-4817-c2e3-c5947de6de89"
+      },
+      "execution_count": 55,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "array([[ 0.96876849,  0.4801512 ,  0.09501285, ..., -0.08308338,\n",
+              "        -0.3144414 ,  3.        ],\n",
+              "       [ 1.08206297, -0.66688618,  0.45761543, ..., -1.70082187,\n",
+              "         3.01117831,  3.        ],\n",
+              "       [ 1.11968468, -1.01852852,  0.64112087, ...,  0.83300539,\n",
+              "        -0.37002131,  3.        ],\n",
+              "       ...,\n",
+              "       [-1.42368833, -0.37320899,  0.52039646, ...,  0.37675531,\n",
+              "         1.08857678,  0.        ],\n",
+              "       [-1.255093  ,  0.26308297,  0.88456889, ...,  0.01608009,\n",
+              "        -0.01004176,  0.        ],\n",
+              "       [-1.26926721,  0.11428131,  0.60833014, ...,  0.53927323,\n",
+              "         0.54789815,  0.        ]])"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 55
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "combine = np.delete(combine,np.where(combine[:,-1]==0),axis=0)\n",
+        "combine = np.delete(combine,np.where(combine[:,-1]==1),axis=0)\n",
+        "combine = np.delete(combine,np.where(combine[:,-1]==2),axis=0)\n",
+        "combine = np.delete(combine,np.where(combine[:,-1]==4),axis=0)\n",
+        "combine = np.delete(combine,np.where(combine[:,-1]==5),axis=0)\n",
+        "combine = np.delete(combine,np.where(combine[:,-1]==7),axis=0)\n",
+        "combine = np.delete(combine,np.where(combine[:,-1]==8),axis=0)\n",
+        "combine = np.delete(combine,np.where(combine[:,-1]==9),axis=0)\n",
+        "combine = np.delete(combine,np.where(combine[:,-1]==11),axis=0)\n",
+        "combine = np.delete(combine,np.where(combine[:,-1]==12),axis=0)\n",
+        "combine = np.delete(combine,np.where(combine[:,-1]==13),axis=0)\n",
+        "combine = np.delete(combine,np.where(combine[:,-1]==15),axis=0)\n",
+        "combine = np.delete(combine,np.where(combine[:,-1]==16),axis=0)\n",
+        "\n"
+      ],
+      "metadata": {
+        "id": "FtZ2P2eTrcun"
+      },
+      "execution_count": 56,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "combine.shape"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "zZEs4MIAr8rU",
+        "outputId": "b3279ced-f6cf-4d45-d74a-0057735ed04d"
+      },
+      "execution_count": 58,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "(3797, 31)"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 58
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "df = pd.DataFrame(combine)"
+      ],
+      "metadata": {
+        "id": "XZ8eOtwwmzOw"
+      },
+      "execution_count": 59,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "df"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 487
+        },
+        "id": "jJiYjysSnJuR",
+        "outputId": "f1f768ef-7a3b-46d3-d482-a8e1eea43b5a"
+      },
+      "execution_count": 60,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "            0         1         2         3         4         5         6   \\\n",
+              "0     0.968768  0.480151  0.095013  0.125597 -0.835529 -0.153065  0.340914   \n",
+              "1     1.082063 -0.666886  0.457615 -0.932147  0.283993 -0.641161  0.513249   \n",
+              "2     1.119685 -1.018529  0.641121 -1.340924  0.498481 -0.292635  0.437308   \n",
+              "3     1.079131 -0.780896  0.465640 -0.886678  0.281052 -0.681895  0.634920   \n",
+              "4     0.969944  0.111926 -0.030070 -0.163259 -0.706674 -0.974477  1.271296   \n",
+              "...        ...       ...       ...       ...       ...       ...       ...   \n",
+              "3792  0.432399  0.610402 -0.831501  0.205103 -0.556665 -0.939452  0.962175   \n",
+              "3793  0.685478  0.183004 -0.901307 -0.785385 -0.547188 -0.687757  1.049118   \n",
+              "3794  0.781909 -0.067255 -0.826451 -1.684310  0.114611 -0.596822  0.765319   \n",
+              "3795  0.848430 -0.141022 -0.788488 -1.763317 -0.061514 -0.644363  0.712839   \n",
+              "3796  0.909079 -0.151210 -0.763383 -1.680368  0.012314 -0.497506  0.843022   \n",
+              "\n",
+              "            7         8         9   ...        21        22        23  \\\n",
+              "0    -0.808389  0.739768 -0.196726  ... -0.680243 -0.742375  0.309232   \n",
+              "1     0.639667 -1.369898  0.276044  ... -0.074711  0.634126  0.264466   \n",
+              "2     0.546881  1.651552 -0.565767  ...  0.060651  0.936132  0.691308   \n",
+              "3     0.624044 -0.905912  0.162279  ...  0.120929  0.673786  0.522048   \n",
+              "4    -0.917720 -0.543372 -0.199309  ... -0.232870 -0.182736  0.318033   \n",
+              "...        ...       ...       ...  ...       ...       ...       ...   \n",
+              "3792 -0.681345 -0.936592 -1.247825  ...  0.082421 -0.322628  0.210611   \n",
+              "3793 -1.134668 -0.904740 -0.039499  ...  0.212918  0.183814  0.066596   \n",
+              "3794 -0.107766 -1.028734 -0.002581  ...  0.338247  0.481747 -0.406540   \n",
+              "3795 -0.104215 -0.610148 -0.137920  ...  0.301796  0.385094 -0.050215   \n",
+              "3796 -0.167119 -0.533579 -0.265659  ...  0.240291  0.584735 -0.275373   \n",
+              "\n",
+              "            24        25        26        27        28        29    30  \n",
+              "0     0.706960 -0.505994  0.346319 -0.390967 -0.083083 -0.314441   3.0  \n",
+              "1    -0.794392 -0.303542  1.126113 -0.518024 -1.700822  3.011178   3.0  \n",
+              "2    -1.013655 -0.927224  0.821306  0.184328  0.833005 -0.370021   3.0  \n",
+              "3    -0.722938 -0.164347  1.201609 -0.673626 -1.598063  2.643712   3.0  \n",
+              "4     0.060125 -0.217072  0.644748 -0.392546  0.256941  0.084382   3.0  \n",
+              "...        ...       ...       ...       ...       ...       ...   ...  \n",
+              "3792  0.335818  0.320615  0.588352  0.401329  0.061948 -0.113360  10.0  \n",
+              "3793 -0.422357  0.315025  0.097456 -0.101163 -2.104280  2.814826  10.0  \n",
+              "3794 -1.261398 -0.126463 -0.244227  0.425079  0.476767  0.105427  10.0  \n",
+              "3795 -1.148064 -0.531813  0.156637  0.437491  0.561004  0.136535  10.0  \n",
+              "3796 -1.059910 -0.346075 -0.022806  0.646895  0.551518  0.149886  10.0  \n",
+              "\n",
+              "[3797 rows x 31 columns]"
+            ],
+            "text/html": [
+              "\n",
+              "  <div id=\"df-7a263094-3dde-453d-9c03-76c3aadb791e\">\n",
+              "    <div class=\"colab-df-container\">\n",
+              "      <div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>0</th>\n",
+              "      <th>1</th>\n",
+              "      <th>2</th>\n",
+              "      <th>3</th>\n",
+              "      <th>4</th>\n",
+              "      <th>5</th>\n",
+              "      <th>6</th>\n",
+              "      <th>7</th>\n",
+              "      <th>8</th>\n",
+              "      <th>9</th>\n",
+              "      <th>...</th>\n",
+              "      <th>21</th>\n",
+              "      <th>22</th>\n",
+              "      <th>23</th>\n",
+              "      <th>24</th>\n",
+              "      <th>25</th>\n",
+              "      <th>26</th>\n",
+              "      <th>27</th>\n",
+              "      <th>28</th>\n",
+              "      <th>29</th>\n",
+              "      <th>30</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>0.968768</td>\n",
+              "      <td>0.480151</td>\n",
+              "      <td>0.095013</td>\n",
+              "      <td>0.125597</td>\n",
+              "      <td>-0.835529</td>\n",
+              "      <td>-0.153065</td>\n",
+              "      <td>0.340914</td>\n",
+              "      <td>-0.808389</td>\n",
+              "      <td>0.739768</td>\n",
+              "      <td>-0.196726</td>\n",
+              "      <td>...</td>\n",
+              "      <td>-0.680243</td>\n",
+              "      <td>-0.742375</td>\n",
+              "      <td>0.309232</td>\n",
+              "      <td>0.706960</td>\n",
+              "      <td>-0.505994</td>\n",
+              "      <td>0.346319</td>\n",
+              "      <td>-0.390967</td>\n",
+              "      <td>-0.083083</td>\n",
+              "      <td>-0.314441</td>\n",
+              "      <td>3.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>1.082063</td>\n",
+              "      <td>-0.666886</td>\n",
+              "      <td>0.457615</td>\n",
+              "      <td>-0.932147</td>\n",
+              "      <td>0.283993</td>\n",
+              "      <td>-0.641161</td>\n",
+              "      <td>0.513249</td>\n",
+              "      <td>0.639667</td>\n",
+              "      <td>-1.369898</td>\n",
+              "      <td>0.276044</td>\n",
+              "      <td>...</td>\n",
+              "      <td>-0.074711</td>\n",
+              "      <td>0.634126</td>\n",
+              "      <td>0.264466</td>\n",
+              "      <td>-0.794392</td>\n",
+              "      <td>-0.303542</td>\n",
+              "      <td>1.126113</td>\n",
+              "      <td>-0.518024</td>\n",
+              "      <td>-1.700822</td>\n",
+              "      <td>3.011178</td>\n",
+              "      <td>3.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>1.119685</td>\n",
+              "      <td>-1.018529</td>\n",
+              "      <td>0.641121</td>\n",
+              "      <td>-1.340924</td>\n",
+              "      <td>0.498481</td>\n",
+              "      <td>-0.292635</td>\n",
+              "      <td>0.437308</td>\n",
+              "      <td>0.546881</td>\n",
+              "      <td>1.651552</td>\n",
+              "      <td>-0.565767</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.060651</td>\n",
+              "      <td>0.936132</td>\n",
+              "      <td>0.691308</td>\n",
+              "      <td>-1.013655</td>\n",
+              "      <td>-0.927224</td>\n",
+              "      <td>0.821306</td>\n",
+              "      <td>0.184328</td>\n",
+              "      <td>0.833005</td>\n",
+              "      <td>-0.370021</td>\n",
+              "      <td>3.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>1.079131</td>\n",
+              "      <td>-0.780896</td>\n",
+              "      <td>0.465640</td>\n",
+              "      <td>-0.886678</td>\n",
+              "      <td>0.281052</td>\n",
+              "      <td>-0.681895</td>\n",
+              "      <td>0.634920</td>\n",
+              "      <td>0.624044</td>\n",
+              "      <td>-0.905912</td>\n",
+              "      <td>0.162279</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.120929</td>\n",
+              "      <td>0.673786</td>\n",
+              "      <td>0.522048</td>\n",
+              "      <td>-0.722938</td>\n",
+              "      <td>-0.164347</td>\n",
+              "      <td>1.201609</td>\n",
+              "      <td>-0.673626</td>\n",
+              "      <td>-1.598063</td>\n",
+              "      <td>2.643712</td>\n",
+              "      <td>3.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>0.969944</td>\n",
+              "      <td>0.111926</td>\n",
+              "      <td>-0.030070</td>\n",
+              "      <td>-0.163259</td>\n",
+              "      <td>-0.706674</td>\n",
+              "      <td>-0.974477</td>\n",
+              "      <td>1.271296</td>\n",
+              "      <td>-0.917720</td>\n",
+              "      <td>-0.543372</td>\n",
+              "      <td>-0.199309</td>\n",
+              "      <td>...</td>\n",
+              "      <td>-0.232870</td>\n",
+              "      <td>-0.182736</td>\n",
+              "      <td>0.318033</td>\n",
+              "      <td>0.060125</td>\n",
+              "      <td>-0.217072</td>\n",
+              "      <td>0.644748</td>\n",
+              "      <td>-0.392546</td>\n",
+              "      <td>0.256941</td>\n",
+              "      <td>0.084382</td>\n",
+              "      <td>3.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>...</th>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "      <td>...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3792</th>\n",
+              "      <td>0.432399</td>\n",
+              "      <td>0.610402</td>\n",
+              "      <td>-0.831501</td>\n",
+              "      <td>0.205103</td>\n",
+              "      <td>-0.556665</td>\n",
+              "      <td>-0.939452</td>\n",
+              "      <td>0.962175</td>\n",
+              "      <td>-0.681345</td>\n",
+              "      <td>-0.936592</td>\n",
+              "      <td>-1.247825</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.082421</td>\n",
+              "      <td>-0.322628</td>\n",
+              "      <td>0.210611</td>\n",
+              "      <td>0.335818</td>\n",
+              "      <td>0.320615</td>\n",
+              "      <td>0.588352</td>\n",
+              "      <td>0.401329</td>\n",
+              "      <td>0.061948</td>\n",
+              "      <td>-0.113360</td>\n",
+              "      <td>10.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3793</th>\n",
+              "      <td>0.685478</td>\n",
+              "      <td>0.183004</td>\n",
+              "      <td>-0.901307</td>\n",
+              "      <td>-0.785385</td>\n",
+              "      <td>-0.547188</td>\n",
+              "      <td>-0.687757</td>\n",
+              "      <td>1.049118</td>\n",
+              "      <td>-1.134668</td>\n",
+              "      <td>-0.904740</td>\n",
+              "      <td>-0.039499</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.212918</td>\n",
+              "      <td>0.183814</td>\n",
+              "      <td>0.066596</td>\n",
+              "      <td>-0.422357</td>\n",
+              "      <td>0.315025</td>\n",
+              "      <td>0.097456</td>\n",
+              "      <td>-0.101163</td>\n",
+              "      <td>-2.104280</td>\n",
+              "      <td>2.814826</td>\n",
+              "      <td>10.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3794</th>\n",
+              "      <td>0.781909</td>\n",
+              "      <td>-0.067255</td>\n",
+              "      <td>-0.826451</td>\n",
+              "      <td>-1.684310</td>\n",
+              "      <td>0.114611</td>\n",
+              "      <td>-0.596822</td>\n",
+              "      <td>0.765319</td>\n",
+              "      <td>-0.107766</td>\n",
+              "      <td>-1.028734</td>\n",
+              "      <td>-0.002581</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.338247</td>\n",
+              "      <td>0.481747</td>\n",
+              "      <td>-0.406540</td>\n",
+              "      <td>-1.261398</td>\n",
+              "      <td>-0.126463</td>\n",
+              "      <td>-0.244227</td>\n",
+              "      <td>0.425079</td>\n",
+              "      <td>0.476767</td>\n",
+              "      <td>0.105427</td>\n",
+              "      <td>10.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3795</th>\n",
+              "      <td>0.848430</td>\n",
+              "      <td>-0.141022</td>\n",
+              "      <td>-0.788488</td>\n",
+              "      <td>-1.763317</td>\n",
+              "      <td>-0.061514</td>\n",
+              "      <td>-0.644363</td>\n",
+              "      <td>0.712839</td>\n",
+              "      <td>-0.104215</td>\n",
+              "      <td>-0.610148</td>\n",
+              "      <td>-0.137920</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.301796</td>\n",
+              "      <td>0.385094</td>\n",
+              "      <td>-0.050215</td>\n",
+              "      <td>-1.148064</td>\n",
+              "      <td>-0.531813</td>\n",
+              "      <td>0.156637</td>\n",
+              "      <td>0.437491</td>\n",
+              "      <td>0.561004</td>\n",
+              "      <td>0.136535</td>\n",
+              "      <td>10.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3796</th>\n",
+              "      <td>0.909079</td>\n",
+              "      <td>-0.151210</td>\n",
+              "      <td>-0.763383</td>\n",
+              "      <td>-1.680368</td>\n",
+              "      <td>0.012314</td>\n",
+              "      <td>-0.497506</td>\n",
+              "      <td>0.843022</td>\n",
+              "      <td>-0.167119</td>\n",
+              "      <td>-0.533579</td>\n",
+              "      <td>-0.265659</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.240291</td>\n",
+              "      <td>0.584735</td>\n",
+              "      <td>-0.275373</td>\n",
+              "      <td>-1.059910</td>\n",
+              "      <td>-0.346075</td>\n",
+              "      <td>-0.022806</td>\n",
+              "      <td>0.646895</td>\n",
+              "      <td>0.551518</td>\n",
+              "      <td>0.149886</td>\n",
+              "      <td>10.0</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "<p>3797 rows × 31 columns</p>\n",
+              "</div>\n",
+              "      <button class=\"colab-df-convert\" onclick=\"convertToInteractive('df-7a263094-3dde-453d-9c03-76c3aadb791e')\"\n",
+              "              title=\"Convert this dataframe to an interactive table.\"\n",
+              "              style=\"display:none;\">\n",
+              "        \n",
+              "  <svg xmlns=\"http://www.w3.org/2000/svg\" height=\"24px\"viewBox=\"0 0 24 24\"\n",
+              "       width=\"24px\">\n",
+              "    <path d=\"M0 0h24v24H0V0z\" fill=\"none\"/>\n",
+              "    <path d=\"M18.56 5.44l.94 2.06.94-2.06 2.06-.94-2.06-.94-.94-2.06-.94 2.06-2.06.94zm-11 1L8.5 8.5l.94-2.06 2.06-.94-2.06-.94L8.5 2.5l-.94 2.06-2.06.94zm10 10l.94 2.06.94-2.06 2.06-.94-2.06-.94-.94-2.06-.94 2.06-2.06.94z\"/><path d=\"M17.41 7.96l-1.37-1.37c-.4-.4-.92-.59-1.43-.59-.52 0-1.04.2-1.43.59L10.3 9.45l-7.72 7.72c-.78.78-.78 2.05 0 2.83L4 21.41c.39.39.9.59 1.41.59.51 0 1.02-.2 1.41-.59l7.78-7.78 2.81-2.81c.8-.78.8-2.07 0-2.86zM5.41 20L4 18.59l7.72-7.72 1.47 1.35L5.41 20z\"/>\n",
+              "  </svg>\n",
+              "      </button>\n",
+              "      \n",
+              "  <style>\n",
+              "    .colab-df-container {\n",
+              "      display:flex;\n",
+              "      flex-wrap:wrap;\n",
+              "      gap: 12px;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-convert {\n",
+              "      background-color: #E8F0FE;\n",
+              "      border: none;\n",
+              "      border-radius: 50%;\n",
+              "      cursor: pointer;\n",
+              "      display: none;\n",
+              "      fill: #1967D2;\n",
+              "      height: 32px;\n",
+              "      padding: 0 0 0 0;\n",
+              "      width: 32px;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-convert:hover {\n",
+              "      background-color: #E2EBFA;\n",
+              "      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);\n",
+              "      fill: #174EA6;\n",
+              "    }\n",
+              "\n",
+              "    [theme=dark] .colab-df-convert {\n",
+              "      background-color: #3B4455;\n",
+              "      fill: #D2E3FC;\n",
+              "    }\n",
+              "\n",
+              "    [theme=dark] .colab-df-convert:hover {\n",
+              "      background-color: #434B5C;\n",
+              "      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);\n",
+              "      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));\n",
+              "      fill: #FFFFFF;\n",
+              "    }\n",
+              "  </style>\n",
+              "\n",
+              "      <script>\n",
+              "        const buttonEl =\n",
+              "          document.querySelector('#df-7a263094-3dde-453d-9c03-76c3aadb791e button.colab-df-convert');\n",
+              "        buttonEl.style.display =\n",
+              "          google.colab.kernel.accessAllowed ? 'block' : 'none';\n",
+              "\n",
+              "        async function convertToInteractive(key) {\n",
+              "          const element = document.querySelector('#df-7a263094-3dde-453d-9c03-76c3aadb791e');\n",
+              "          const dataTable =\n",
+              "            await google.colab.kernel.invokeFunction('convertToInteractive',\n",
+              "                                                     [key], {});\n",
+              "          if (!dataTable) return;\n",
+              "\n",
+              "          const docLinkHtml = 'Like what you see? Visit the ' +\n",
+              "            '<a target=\"_blank\" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'\n",
+              "            + ' to learn more about interactive tables.';\n",
+              "          element.innerHTML = '';\n",
+              "          dataTable['output_type'] = 'display_data';\n",
+              "          await google.colab.output.renderOutput(dataTable, element);\n",
+              "          const docLink = document.createElement('div');\n",
+              "          docLink.innerHTML = docLinkHtml;\n",
+              "          element.appendChild(docLink);\n",
+              "        }\n",
+              "      </script>\n",
+              "    </div>\n",
+              "  </div>\n",
+              "  "
+            ]
+          },
+          "metadata": {},
+          "execution_count": 60
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "data = np.array(combine)[:,:-1]\n",
+        "labels = np.array(combine)[:,-1]"
+      ],
+      "metadata": {
+        "id": "bsyhks_NxL9P"
+      },
+      "execution_count": 67,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "print(data.shape)\n",
+        "print(labels.shape)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "oye8vT56x7gU",
+        "outputId": "45f3d89e-d14e-4e5d-bf61-5f7b6856aaff"
+      },
+      "execution_count": 68,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "(3797, 30)\n",
+            "(3797,)\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=0.3, random_state=42)"
+      ],
+      "metadata": {
+        "id": "0rNqjUmFnLXP"
+      },
+      "execution_count": 69,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "C_values = [0.1, 1, 10, 100]\n",
+        "kernel_type = ['linear','poly','rbf']\n",
+        "accuracy = []"
+      ],
+      "metadata": {
+        "id": "y-06ychnxfi_"
+      },
+      "execution_count": 70,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "for kernel in kernel_type:\n",
+        "  for C in C_values:\n",
+        "      # Initialize SVM classifier with current C value\n",
+        "      svm = SVC(kernel=kernel, C=C)\n",
+        "\n",
+        "      start_time1 = time.time()\n",
+        "      svm_ovr = OneVsRestClassifier(svm).fit(X_train, y_train)\n",
+        "      Time_taken_ovr = time.time() - start_time1\n",
+        "      y_test_ovr = svm_ovr.predict(X_test)\n",
+        "\n",
+        "      acc_ovr = accuracy_score(y_test, y_test_ovr)\n",
+        "      accuracy.append(acc_ovr)\n",
+        "\n",
+        "      \n",
+        "      # # Train SVM classifier\n",
+        "      # svm.fit(X_train, y_train)\n",
+        "      \n",
+        "      # # Get number of support vectors\n",
+        "      # n_support_vectors = svm.n_support_\n",
+        "      \n",
+        "      # # Print number of support vectors for current C value\n",
+        "      # print(f\"C = {C}: Number of support vectors = {sum(n_support_vectors)}\")"
+      ],
+      "metadata": {
+        "id": "dvWNZ_mLxnR0"
+      },
+      "execution_count": 71,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "print(accuracy)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "ylSBMmLezkKz",
+        "outputId": "0ff038d8-0e66-4dab-84d9-2e02e7c8247d"
+      },
+      "execution_count": 72,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "[0.9175438596491228, 0.9219298245614035, 0.9271929824561403, 0.9254385964912281, 0.8929824561403509, 0.9228070175438596, 0.9692982456140351, 0.968421052631579, 0.8903508771929824, 0.9517543859649122, 0.980701754385965, 0.9771929824561404]\n"
+          ]
+        }
+      ]
+    }
+  ]
+}
